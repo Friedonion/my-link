@@ -56,9 +56,9 @@
 ## 4. 기술 스택 (Tech Stack)
 
 ### 4.1 프론트엔드 (Frontend)
-- **프레임워크**: React (Vite)
-- **스타일링**: Vanilla CSS (CSS Modules 또는 일반 CSS)
-- **상태 관리**: React Context API 또는 Zustand
+- **프레임워크**: Next.js (App Router)
+- **스타일링 및 UI**: Tailwind CSS, shadcn/ui
+- **상태 관리**: Zustand
 
 ### 4.2 백엔드 (Backend & BaaS)
 - **서비스**: Firebase
