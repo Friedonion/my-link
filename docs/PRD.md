@@ -26,7 +26,7 @@
    - 링크 항목 표시 시 대상 웹사이트의 파비콘(Favicon)을 아이콘으로 자동 설정
 4. **퍼블릭 프로필 페이지 (Public Page)**
    - 사용자별 고유 URL(`mylink.com/username`)을 통해 외부인 누구나 접근 가능한 페이지 제공
-   - 모바일 환경에 최적화된(Mobile-first) UI/UX 제공
+   - 다양한 기기(PC, 태블릿, 모바일)를 아우르는 반응형(Responsive) 기반의 유연한 UI/UX 제공
 
 ---
 
