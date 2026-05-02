@@ -12,15 +12,15 @@ graph TD
     classDef logic fill:#fffacd,stroke:#ff8c00,stroke-width:2px,stroke-dasharray: 4 4;
     classDef action fill:#e6ffe6,stroke:#2e8b57,stroke-width:1px;
 
-    Start((접속)) --> Home[1. 메인 홈 / 로그인 화면]:::page
-    Home -->|구글 로그인 클릭| AuthLogic{가입된 회원인가?}:::logic
-    AuthLogic -->|No (최초 가입)| Setup[2. 사용자 주소(Username) 설정 화면]:::page
-    AuthLogic -->|Yes (기존 회원)| RoutingLogic{본인 페이지로 이동}:::logic
+    Start(("접속")) --> Home["1. 메인 홈 / 로그인 화면"]:::page
+    Home -->|"구글 로그인 클릭"| AuthLogic{"가입된 회원인가?"}:::logic
+    AuthLogic -->|"No (최초 가입)"| Setup["2. 사용자 주소(Username) 설정 화면"]:::page
+    AuthLogic -->|"Yes (기존 회원)"| RoutingLogic{"본인 페이지로 이동"}:::logic
     
-    Setup -->|중복 확인 및 저장| ProfileEdit[3. 프로필 관리 화면 (편집 모드)]:::page
+    Setup -->|"중복 확인 및 저장"| ProfileEdit["3. 프로필 관리 화면 (편집 모드)"]:::page
     RoutingLogic --> ProfileEdit
     
-    Visitor((방문자 접속)) --> |URL 링크 클릭| ProfileView[4. 퍼블릭 프로필 화면 (뷰어 모드)]:::page
+    Visitor(("방문자 접속")) --> |"URL 링크 클릭"| ProfileView["4. 퍼블릭 프로필 화면 (뷰어 모드)"]:::page
 ```
 
 ---
