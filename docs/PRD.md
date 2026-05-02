@@ -92,6 +92,7 @@ Firestore의 NoSQL 특성을 활용하여 다음과 같이 컬렉션(Collection)
 특정 사용자가 등록한 링크 목록을 관리합니다. 사용자 문서 하위의 서브 컬렉션으로 관리하여 보안 규칙 적용과 조회를 용이하게 합니다.
 - **Document ID**: Firestore 자동 생성 ID
 - **Fields**:
+  - `id` (String): 링크 고유 식별자 (Firestore Document ID)
   - `title` (String): 링크 제목
   - `url` (String): 목적지 URL 주소
   - `faviconUrl` (String): 파비콘 이미지 URL
