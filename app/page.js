@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { Plus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { dummyLinks } from "@/data/links";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,39 +20,55 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+const linkSchema = z.object({
+  title: z.string().min(1, "제목을 입력해주세요."),
+  url: z.string().min(1, "URL을 입력해주세요.").url("유효한 URL 형식이 아닙니다."),
+});
+
 export default function Home() {
   const [links, setLinks] = useState(dummyLinks);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newTitle, setNewTitle] = useState("");
-  const [newUrl, setNewUrl] = useState("");
 
-  const handleAddLink = (e) => {
-    e.preventDefault();
-    if (!newTitle.trim() || !newUrl.trim()) return;
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm({
+    resolver: zodResolver(linkSchema),
+    defaultValues: {
+      title: "",
+      url: "",
+    },
+  });
 
+  const handleOpenChange = (open) => {
+    setIsDialogOpen(open);
+    if (!open) {
+      reset(); // Reset form state when dialog closes
+    }
+  };
+
+  const onSubmit = (data) => {
     let parsedDomain = "";
-    const urlString = newUrl.startsWith("http") ? newUrl : `https://${newUrl}`;
-    
+    // Zod already validated it as a valid URL, so this parsing is safe
     try {
-      const urlObj = new URL(urlString);
+      const urlObj = new URL(data.url);
       parsedDomain = urlObj.hostname;
     } catch (error) {
-      // Fallback if URL parsing fails
-      parsedDomain = urlString;
+      parsedDomain = data.url;
     }
 
     const newLink = {
       id: Date.now().toString(),
-      title: newTitle,
-      url: urlString,
+      title: data.title,
+      url: data.url,
       faviconUrl: `https://www.google.com/s2/favicons?domain=${parsedDomain}&sz=64`,
       createdAt: new Date().toISOString(),
     };
 
     setLinks((prev) => [newLink, ...prev]);
-    setIsDialogOpen(false);
-    setNewTitle("");
-    setNewUrl("");
+    handleOpenChange(false);
   };
 
   return (
@@ -68,14 +87,14 @@ export default function Home() {
 
         {/* Add Link Section */}
         <div className="w-full">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
             <DialogTrigger asChild>
               <Button className="w-full rounded-full" size="lg">
                 <Plus className="mr-2 h-5 w-5" /> 링크 추가
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
-              <form onSubmit={handleAddLink}>
+              <form onSubmit={handleSubmit(onSubmit)}>
                 <DialogHeader>
                   <DialogTitle>새로운 링크 추가</DialogTitle>
                   <DialogDescription>
@@ -83,36 +102,42 @@ export default function Home() {
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="title" className="text-right">
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="title" className="text-right mt-3">
                       제목
                     </Label>
-                    <Input
-                      id="title"
-                      value={newTitle}
-                      onChange={(e) => setNewTitle(e.target.value)}
-                      placeholder="예: 내 블로그"
-                      className="col-span-3"
-                      required
-                    />
+                    <div className="col-span-3">
+                      <Input
+                        id="title"
+                        placeholder="예: 내 블로그"
+                        className={errors.title ? "border-red-500" : ""}
+                        {...register("title")}
+                      />
+                      {errors.title && (
+                        <p className="text-sm font-medium text-red-500 mt-1">{errors.title.message}</p>
+                      )}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="url" className="text-right">
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label htmlFor="url" className="text-right mt-3">
                       URL
                     </Label>
-                    <Input
-                      id="url"
-                      type="url"
-                      value={newUrl}
-                      onChange={(e) => setNewUrl(e.target.value)}
-                      placeholder="https://example.com"
-                      className="col-span-3"
-                      required
-                    />
+                    <div className="col-span-3">
+                      <Input
+                        id="url"
+                        type="url"
+                        placeholder="https://example.com"
+                        className={errors.url ? "border-red-500" : ""}
+                        {...register("url")}
+                      />
+                      {errors.url && (
+                        <p className="text-sm font-medium text-red-500 mt-1">{errors.url.message}</p>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                  <Button type="button" variant="outline" onClick={() => handleOpenChange(false)}>
                     취소
                   </Button>
                   <Button type="submit">추가하기</Button>
