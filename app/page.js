@@ -1,14 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Link as LinkIcon, Loader2, Pencil, Trash2, LogOut, Copy } from "lucide-react";
+import Link from "next/link";
+import { Plus, Link as LinkIcon, Loader2, Pencil, Trash2, LogOut, Copy, ExternalLink } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { 
   collection, 
   addDoc, 
-  onSnapshot, 
   query, 
   orderBy, 
   serverTimestamp,
@@ -17,7 +17,6 @@ import {
   deleteDoc,
   getDoc,
   setDoc,
-  where,
   getDocs
 } from "firebase/firestore";
 import { onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "firebase/auth";
@@ -46,6 +45,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 const linkSchema = z.object({
   title: z.string().min(1, "제목을 입력해주세요."),
@@ -85,22 +85,7 @@ const Favicon = ({ src, alt }) => {
 
 const LinkItem = ({ link, onUpdate, onDelete }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    try {
-      await onDelete(link.id);
-      setIsDeleteDialogOpen(false);
-      toast.success("링크가 삭제되었습니다.");
-    } catch (error) {
-      toast.error("삭제 중 오류가 발생했습니다.");
-    } finally {
-      setIsDeleting(false);
-    }
-  };
 
   const {
     register,
@@ -116,15 +101,22 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
   });
 
   const onSubmit = async (data) => {
-    setIsSaving(true);
     try {
-      await onUpdate(link.id, data);
+      await onUpdate({ id: link.id, ...data });
       setIsEditing(false);
       toast.success("링크가 성공적으로 수정되었습니다.");
     } catch (error) {
       toast.error("수정 중 오류가 발생했습니다. URL 형식을 확인해주세요.");
-    } finally {
-      setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await onDelete(link.id);
+      setIsDeleteDialogOpen(false);
+      toast.success("링크가 삭제되었습니다.");
+    } catch (error) {
+      toast.error("삭제 중 오류가 발생했습니다.");
     }
   };
 
@@ -144,7 +136,6 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
               <Input 
                 placeholder="제목"
                 className={errors.title ? "border-red-500" : ""}
-                disabled={isSaving}
                 {...register("title")}
               />
               {errors.title && (
@@ -156,7 +147,6 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
                 placeholder="URL"
                 type="url"
                 className={errors.url ? "border-red-500" : ""}
-                disabled={isSaving}
                 {...register("url")}
               />
               {errors.url && (
@@ -164,11 +154,11 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
               )}
             </div>
             <div className="flex justify-end gap-2 mt-1">
-              <Button type="button" variant="outline" size="sm" onClick={handleCancel} disabled={isSaving}>
+              <Button type="button" variant="outline" size="sm" onClick={handleCancel}>
                 취소
               </Button>
-              <Button type="submit" size="sm" disabled={isSaving}>
-                {isSaving ? "저장 중..." : "저장"}
+              <Button type="submit" size="sm">
+                저장
               </Button>
             </div>
           </form>
@@ -232,11 +222,11 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)} disabled={isDeleting}>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
               취소
             </Button>
-            <Button variant="destructive" onClick={handleDelete} disabled={isDeleting}>
-              {isDeleting ? "삭제 중..." : "삭제하기"}
+            <Button variant="destructive" onClick={handleDelete}>
+              삭제하기
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -248,7 +238,7 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
 const Header = ({ user, profileData, onLogin, onLogout }) => {
   const handleCopyLink = () => {
     if (!user || !profileData) return;
-    const displayName = profileData.displayName; // URL용 고유 아이디
+    const displayName = profileData.displayName;
     const link = `${window.location.origin}/${displayName}`;
     navigator.clipboard.writeText(link).then(() => {
       toast.success("프로필 링크가 복사되었습니다!");
@@ -264,15 +254,28 @@ const Header = ({ user, profileData, onLogin, onLogout }) => {
           <LinkIcon className="h-5 w-5" />
           <span>MyLink</span>
         </div>
-        <nav className="flex items-center gap-4">
+        <nav className="flex items-center gap-2 sm:gap-4">
           {user ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger className="rounded-full outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 dark:focus:ring-zinc-100">
-                <Avatar className="h-9 w-9 hover:opacity-80 transition-opacity cursor-pointer">
-                  <AvatarImage src={profileData?.photoURL || user.photoURL} alt={profileData?.username || user.displayName || "User"} />
-                  <AvatarFallback>{(profileData?.username || user.displayName || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback>
-                </Avatar>
-              </DropdownMenuTrigger>
+            <>
+              {profileData && (
+                <Button 
+                  variant="default" 
+                  size="sm" 
+                  className="h-9 px-3 sm:px-4"
+                  nativeButton={false}
+                  render={<Link href={`/${profileData.displayName}`} className="flex items-center gap-2" />}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span className="hidden sm:inline">내 페이지</span>
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger className="rounded-full outline-none focus:ring-2 focus:ring-zinc-900 focus:ring-offset-2 dark:focus:ring-zinc-100">
+                  <Avatar className="h-9 w-9 hover:opacity-80 transition-opacity cursor-pointer">
+                    <AvatarImage src={profileData?.photoURL || user.photoURL} alt={profileData?.username || user.displayName || "User"} />
+                    <AvatarFallback>{(profileData?.username || user.displayName || user.email || "U").charAt(0).toUpperCase()}</AvatarFallback>
+                  </Avatar>
+                </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end">
                 <DropdownMenuGroup>
                   <DropdownMenuLabel className="font-normal">
@@ -285,6 +288,10 @@ const Header = ({ user, profileData, onLogin, onLogout }) => {
                   </DropdownMenuLabel>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
+                <DropdownMenuItem render={<Link href={`/${profileData?.displayName}`} className="cursor-pointer flex items-center" />}>
+                  <LinkIcon className="mr-2 h-4 w-4" />
+                  <span>내 페이지 보기</span>
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer">
                   <Copy className="mr-2 h-4 w-4" />
                   <span>내 링크 복사</span>
@@ -296,6 +303,7 @@ const Header = ({ user, profileData, onLogin, onLogout }) => {
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
+          </>
           ) : (
             <Button variant="outline" size="sm" onClick={onLogin}>
               로그인
@@ -353,191 +361,127 @@ const LandingView = ({ onLogin }) => {
   );
 };
 
-const MyPageView = ({ user, profileData, setProfileData }) => {
-  const [links, setLinks] = useState([]);
+const MyPageView = ({ user }) => {
+  const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [isInitialLoading, setIsInitialLoading] = useState(true);
-
-  // 프로필 상태 및 인라인 편집 상태
-  const [editingField, setEditingField] = useState(null); // 'displayName', 'bio', 'username' 중 하나
+  const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
-  const [isProfileSaving, setIsProfileSaving] = useState(false);
 
-  // Firestore에서 실시간으로 링크 목록 가져오기
-  useEffect(() => {
-    if (!user) return;
+  // 1. 프로필 데이터 조회
+  const { data: profileData, isLoading: isProfileLoading } = useQuery({
+    queryKey: ["profile", user.uid],
+    queryFn: async () => {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
 
-    const q = query(
-      collection(db, "users", user.uid, "links"),
-      orderBy("createdAt", "desc")
-    );
+      if (userSnap.exists()) {
+        return userSnap.data();
+      } else {
+        const baseDisplayName = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '') : "user";
+        let finalDisplayName = baseDisplayName;
+        let isAvailable = false;
+        let counter = 0;
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const linksData = querySnapshot.docs.map((doc) => ({
+        while (!isAvailable) {
+          const checkName = counter === 0 ? baseDisplayName : `${baseDisplayName}.${counter}`;
+          const nameRef = doc(db, "displayNames", checkName);
+          const nameSnap = await getDoc(nameRef);
+          
+          if (!nameSnap.exists()) {
+            finalDisplayName = checkName;
+            isAvailable = true;
+          } else {
+            counter++;
+            if (counter > 100) {
+              finalDisplayName = `${baseDisplayName}.${user.uid.slice(0, 5)}`;
+              break;
+            }
+          }
+        }
+
+        const initialData = {
+          displayName: finalDisplayName,
+          username: user.displayName || "이름 없음",
+          bio: "",
+          photoURL: user.photoURL || "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        await setDoc(userRef, initialData);
+        await setDoc(doc(db, "displayNames", finalDisplayName), { uid: user.uid });
+        return initialData;
+      }
+    },
+    enabled: !!user,
+  });
+
+  // 2. 링크 데이터 조회
+  const { data: links = [], isLoading: isLinksLoading } = useQuery({
+    queryKey: ["links", user.uid],
+    queryFn: async () => {
+      const q = query(
+        collection(db, "users", user.uid, "links"),
+        orderBy("createdAt", "desc")
+      );
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
       }));
-      setLinks(linksData);
-      setIsInitialLoading(false);
-    }, (error) => {
-      console.error("Firestore Error:", error);
-      setIsInitialLoading(false);
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const {
-    register: registerLink,
-    handleSubmit: handleSubmitLink,
-    formState: { errors: linkErrors },
-    reset: resetLink,
-  } = useForm({
-    resolver: zodResolver(linkSchema),
-    defaultValues: {
-      title: "",
-      url: "",
     },
+    enabled: !!user,
   });
 
-  const {
-    register: registerProfile,
-    handleSubmit: handleSubmitProfile,
-    formState: { errors: profileErrors },
-    reset: resetProfile,
-  } = useForm({
-    resolver: zodResolver(profileSchema),
-    values: {
-      displayName: profileData?.displayName || "",
-      bio: profileData?.bio || "",
-      username: profileData?.username || "",
-    },
-  });
-
-  const handleOpenChange = (open) => {
-    setIsDialogOpen(open);
-    if (!open) {
-      resetLink();
-    }
-  };
-
-  const startEditing = (field, value) => {
-    setEditingField(field);
-    setEditValue(value || "");
-  };
-
-  const handleFieldSave = async (field) => {
-    if (!editingField || isProfileSaving) return;
-    
-    const oldValue = profileData[field] || "";
-    let validatedValue = editValue.trim();
-    
-    // 값이 변경되지 않았으면 종료
-    if (validatedValue === oldValue) {
-      setEditingField(null);
-      return;
-    }
-
-    // 1. 사전 유효성 검사 (서버 요청 전)
-    try {
+  // 3. 프로필 수정 Mutation (낙관적 업데이트)
+  const updateProfileMutation = useMutation({
+    mutationFn: async ({ field, value, oldValue }) => {
       if (field === 'displayName') {
-        validatedValue = validatedValue.toLowerCase();
-        if (!/^[a-z0-9_.]+$/.test(validatedValue)) throw new Error("영문 소문자, 숫자, 언더바(_), 마침표(.)만 가능합니다.");
-        if (validatedValue.length < 3) throw new Error("이름은 최소 3글자 이상이어야 합니다.");
-      } else if (field === 'username') {
-        if (validatedValue.length < 2) throw new Error("표시 이름은 최소 2글자 이상이어야 합니다.");
-      }
-    } catch (error) {
-      toast.error(error.message);
-      return;
-    }
-
-    // 2. 낙관적 업데이트 (Optimistic Update)
-    // 서버 응답을 기다리지 않고 UI를 먼저 업데이트합니다.
-    const optimisticData = { ...profileData, [field]: validatedValue };
-    setProfileData(optimisticData);
-    setEditingField(null);
-
-    setIsProfileSaving(true);
-    try {
-      // 3. 서버 측 검증 및 업데이트
-      if (field === 'displayName') {
-        const nameRef = doc(db, "displayNames", validatedValue);
+        const nameRef = doc(db, "displayNames", value);
         const nameSnap = await getDoc(nameRef);
         
         if (nameSnap.exists() && nameSnap.data().uid !== user.uid) {
           throw new Error("이미 사용 중인 이름입니다.");
         }
 
-        // 이전 예약 삭제 및 새 예약 등록
-        if (oldValue && oldValue !== validatedValue) {
+        if (oldValue && oldValue !== value) {
           await deleteDoc(doc(db, "displayNames", oldValue));
         }
-        await setDoc(doc(db, "displayNames", validatedValue), { uid: user.uid });
+        await setDoc(doc(db, "displayNames", value), { uid: user.uid });
       }
 
-      // 4. Firestore 프로필 업데이트
       const userRef = doc(db, "users", user.uid);
       await updateDoc(userRef, {
-        [field]: validatedValue,
+        [field]: value,
         updatedAt: serverTimestamp(),
       });
-      
+    },
+    onMutate: async ({ field, value }) => {
+      await queryClient.cancelQueries({ queryKey: ["profile", user.uid] });
+      const previousProfile = queryClient.getQueryData(["profile", user.uid]);
+      queryClient.setQueryData(["profile", user.uid], (old) => ({
+        ...old,
+        [field]: value,
+      }));
+      return { previousProfile };
+    },
+    onError: (err, variables, context) => {
+      queryClient.setQueryData(["profile", user.uid], context.previousProfile);
+      toast.error(err.message || "저장 중 오류가 발생했습니다.");
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["profile", user.uid] });
+    },
+    onSuccess: () => {
       toast.success("변경사항이 저장되었습니다.");
-    } catch (error) {
-      // 5. 오류 발생 시 롤백 (Rollback)
-      setProfileData(prev => ({ ...prev, [field]: oldValue }));
-      toast.error(error.message || "저장 중 오류가 발생했습니다.");
-    } finally {
-      setIsProfileSaving(false);
     }
-  };
+  });
 
-  const handleUpdateLink = async (id, updatedData) => {
-    try {
-      const urlObj = new URL(updatedData.url);
-      const domain = urlObj.hostname;
-      
-      let faviconUrl = `https://www.google.com/s2/favicons?domain=${updatedData.url}&sz=64`;
-
-      if (domain === "blog.naver.com" || domain.endsWith(".blog.me")) {
-        const pathSegments = urlObj.pathname.split("/").filter(Boolean);
-        if (pathSegments.length > 0) {
-          const blogId = pathSegments[0];
-          faviconUrl = `https://blog.naver.com/favicon.ico?blogId=${blogId}`;
-        }
-      }
-
-      const linkRef = doc(db, "users", user.uid, "links", id);
-      await updateDoc(linkRef, {
-        title: updatedData.title,
-        url: updatedData.url,
-        faviconUrl,
-        updatedAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error("Error updating link: ", error);
-      throw error;
-    }
-  };
-
-  const handleDeleteLink = async (id) => {
-    try {
-      const linkRef = doc(db, "users", user.uid, "links", id);
-      await deleteDoc(linkRef);
-    } catch (error) {
-      console.error("Error deleting link: ", error);
-      throw error;
-    }
-  };
-
-  const onSubmit = async (data) => {
-    setLoading(true);
-    try {
+  // 4. 링크 관리 Mutations
+  const addLinkMutation = useMutation({
+    mutationFn: async (data) => {
       const urlObj = new URL(data.url);
       const domain = urlObj.hostname;
-      
       let faviconUrl = `https://www.google.com/s2/favicons?domain=${data.url}&sz=64`;
 
       if (domain === "blog.naver.com" || domain.endsWith(".blog.me")) {
@@ -555,20 +499,99 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
-
-      handleOpenChange(false);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user.uid] });
+      setIsDialogOpen(false);
+      resetLink();
       toast.success("링크가 성공적으로 추가되었습니다.");
-    } catch (error) {
-      console.error("Error adding link: ", error);
+    },
+    onError: () => {
       toast.error("링크 추가 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
     }
+  });
+
+  const updateLinkMutation = useMutation({
+    mutationFn: async (data) => {
+      const urlObj = new URL(data.url);
+      let faviconUrl = `https://www.google.com/s2/favicons?domain=${data.url}&sz=64`;
+      
+      const domain = urlObj.hostname;
+      if (domain === "blog.naver.com" || domain.endsWith(".blog.me")) {
+        const pathSegments = urlObj.pathname.split("/").filter(Boolean);
+        if (pathSegments.length > 0) {
+          const blogId = pathSegments[0];
+          faviconUrl = `https://blog.naver.com/favicon.ico?blogId=${blogId}`;
+        }
+      }
+
+      const linkRef = doc(db, "users", user.uid, "links", data.id);
+      await updateDoc(linkRef, {
+        title: data.title,
+        url: data.url,
+        faviconUrl,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user.uid] });
+    }
+  });
+
+  const deleteLinkMutation = useMutation({
+    mutationFn: async (id) => {
+      const linkRef = doc(db, "users", user.uid, "links", id);
+      await deleteDoc(linkRef);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["links", user.uid] });
+    }
+  });
+
+  const {
+    register: registerLink,
+    handleSubmit: handleSubmitLink,
+    formState: { errors: linkErrors },
+    reset: resetLink,
+  } = useForm({
+    resolver: zodResolver(linkSchema),
+    defaultValues: { title: "", url: "" },
+  });
+
+  const startEditing = (field, value) => {
+    setEditingField(field);
+    setEditValue(value || "");
   };
 
-  const profileName = profileData?.displayName || "이름 없음";
+  const handleFieldSave = async (field) => {
+    if (!editingField || updateProfileMutation.isPending) return;
+    
+    const oldValue = profileData[field] || "";
+    let validatedValue = editValue.trim();
+    
+    if (validatedValue === oldValue) {
+      setEditingField(null);
+      return;
+    }
 
-  if (!profileData) {
+    try {
+      if (field === 'displayName') {
+        validatedValue = validatedValue.toLowerCase();
+        if (!/^[a-z0-9_.]+$/.test(validatedValue)) throw new Error("영문 소문자, 숫자, 언더바(_), 마침표(.)만 가능합니다.");
+        if (validatedValue.length < 3) throw new Error("이름은 최소 3글자 이상이어야 합니다.");
+      } else if (field === 'username') {
+        if (validatedValue.length < 2) throw new Error("표시 이름은 최소 2글자 이상이어야 합니다.");
+      }
+    } catch (error) {
+      toast.error(error.message);
+      return;
+    }
+
+    setEditingField(null);
+    updateProfileMutation.mutate({ field, value: validatedValue, oldValue });
+  };
+
+  if (isProfileLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
         <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
@@ -576,6 +599,8 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
       </div>
     );
   }
+
+  const profileName = profileData?.username || "이름 없음";
 
   return (
     <div className="mx-auto max-w-[500px] flex flex-col items-center gap-8">
@@ -589,12 +614,9 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
               <span className="text-zinc-400 font-bold text-2xl">{profileName.charAt(0).toUpperCase()}</span>
             )}
           </div>
-          {/* 사진 수정은 인라인 편집이 어려우므로 다이얼로그 유지 또는 추후 업로드 로직으로 대체 가능 */}
-          {/* 여기서는 현재 UI 구성을 유지하되 Pencil 아이콘을 프로필 섹션 전반의 편집 의미로도 사용 가능 */}
         </div>
         
         <div className="text-center w-full flex flex-col items-center gap-1">
-          {/* Username (Display Name) Inline Edit */}
           {editingField === 'username' ? (
             <div className="w-full max-w-[300px]">
               <Input
@@ -604,7 +626,7 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={() => handleFieldSave('username')}
                 onKeyDown={(e) => e.key === 'Enter' && handleFieldSave('username')}
-                disabled={isProfileSaving}
+                disabled={updateProfileMutation.isPending}
               />
             </div>
           ) : (
@@ -616,7 +638,6 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
             </h1>
           )}
 
-          {/* DisplayName (URL ID) Inline Edit */}
           {editingField === 'displayName' ? (
             <div className="flex items-center gap-1 w-full max-w-[200px]">
               <span className="text-zinc-500 font-medium">@</span>
@@ -627,7 +648,7 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={() => handleFieldSave('displayName')}
                 onKeyDown={(e) => e.key === 'Enter' && handleFieldSave('displayName')}
-                disabled={isProfileSaving}
+                disabled={updateProfileMutation.isPending}
               />
             </div>
           ) : (
@@ -639,7 +660,6 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
             </p>
           )}
 
-          {/* Bio Inline Edit */}
           {editingField === 'bio' ? (
             <div className="w-full max-w-[350px] mt-2">
               <Input
@@ -650,7 +670,7 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
                 onChange={(e) => setEditValue(e.target.value)}
                 onBlur={() => handleFieldSave('bio')}
                 onKeyDown={(e) => e.key === 'Enter' && handleFieldSave('bio')}
-                disabled={isProfileSaving}
+                disabled={updateProfileMutation.isPending}
               />
             </div>
           ) : (
@@ -666,12 +686,12 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
 
       {/* Add Link Section */}
       <div className="w-full">
-        <Dialog open={isDialogOpen} onOpenChange={handleOpenChange}>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger render={<Button className="w-full rounded-full shadow-md hover:shadow-lg transition-all" size="lg" />}>
             <Plus className="mr-2 h-5 w-5" /> 링크 추가
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
-            <form onSubmit={handleSubmitLink(onSubmit)}>
+            <form onSubmit={handleSubmitLink((data) => addLinkMutation.mutate(data))}>
               <DialogHeader>
                 <DialogTitle>새로운 링크 추가</DialogTitle>
                 <DialogDescription>
@@ -714,11 +734,11 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
                 </div>
               </div>
               <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={loading}>
+                <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)} disabled={addLinkMutation.isPending}>
                   취소
                 </Button>
-                <Button type="submit" disabled={loading}>
-                  {loading ? "추가 중..." : "추가하기"}
+                <Button type="submit" disabled={addLinkMutation.isPending}>
+                  {addLinkMutation.isPending ? "추가 중..." : "추가하기"}
                 </Button>
               </DialogFooter>
             </form>
@@ -728,7 +748,7 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
 
       {/* Links Section */}
       <div className="w-full flex flex-col gap-4">
-        {isInitialLoading ? (
+        {isLinksLoading ? (
           <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
             <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
             <p className="text-sm font-medium">링크를 불러오는 중입니다...</p>
@@ -739,7 +759,12 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
           </div>
         ) : (
           links.map((link) => (
-            <LinkItem key={link.id} link={link} onUpdate={handleUpdateLink} onDelete={handleDeleteLink} />
+            <LinkItem 
+              key={link.id} 
+              link={link} 
+              onUpdate={updateLinkMutation.mutate} 
+              onDelete={deleteLinkMutation.mutate} 
+            />
           ))
         )}
       </div>
@@ -749,85 +774,64 @@ const MyPageView = ({ user, profileData, setProfileData }) => {
 
 export default function Home() {
   const [user, setUser] = useState(null);
-  const [profileData, setProfileData] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
-      if (!currentUser) {
-        setProfileData(null);
-        setAuthLoading(false);
-      }
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
-  // 프로필 정보 가져오기 또는 초기화
-  useEffect(() => {
-    if (!user) return;
+  const { data: profileData } = useQuery({
+    queryKey: ["profile", user?.uid],
+    queryFn: async () => {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
 
-    const fetchProfile = async () => {
-      try {
-        const userRef = doc(db, "users", user.uid);
-        const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        return userSnap.data();
+      } else {
+        // ... (기존 생성 로직과 동일하게 유지)
+        const baseDisplayName = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '') : "user";
+        let finalDisplayName = baseDisplayName;
+        let isAvailable = false;
+        let counter = 0;
 
-        if (userSnap.exists()) {
-          setProfileData(userSnap.data());
-        } else {
-          // 초기 프로필 생성 (displayName이 URL용 고유 아이디)
-          const baseDisplayName = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '') : "user";
-          let finalDisplayName = baseDisplayName;
+        while (!isAvailable) {
+          const checkName = counter === 0 ? baseDisplayName : `${baseDisplayName}.${counter}`;
+          const nameRef = doc(db, "displayNames", checkName);
+          const nameSnap = await getDoc(nameRef);
           
-          // 1. 중복 확인 및 숫자 기반 고유성 확보
-          let isAvailable = false;
-          let counter = 0;
-
-          while (!isAvailable) {
-            const checkName = counter === 0 ? baseDisplayName : `${baseDisplayName}.${counter}`;
-            const nameRef = doc(db, "displayNames", checkName);
-            const nameSnap = await getDoc(nameRef);
-            
-            if (!nameSnap.exists()) {
-              finalDisplayName = checkName;
-              isAvailable = true;
-            } else {
-              counter++;
-              // 무한 루프 방지
-              if (counter > 100) {
-                finalDisplayName = `${baseDisplayName}.${user.uid.slice(0, 5)}`;
-                break;
-              }
+          if (!nameSnap.exists()) {
+            finalDisplayName = checkName;
+            isAvailable = true;
+          } else {
+            counter++;
+            if (counter > 100) {
+              finalDisplayName = `${baseDisplayName}.${user.uid.slice(0, 5)}`;
+              break;
             }
           }
-
-          const initialData = {
-            displayName: finalDisplayName, // URL용 고유 아이디
-            username: user.displayName || "이름 없음", // 표시용 이름
-            bio: "",
-            photoURL: user.photoURL || "",
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
-          
-          await setDoc(userRef, initialData);
-          // displayName 예약
-          try {
-            await setDoc(doc(db, "displayNames", finalDisplayName), { uid: user.uid });
-          } catch (e) {
-            console.error("DisplayName registration failed:", e);
-          }
-          setProfileData(initialData);
         }
-      } catch (error) {
-        console.error("Error fetching profile:", error);
-      } finally {
-        setAuthLoading(false);
-      }
-    };
 
-    fetchProfile();
-  }, [user]);
+        const initialData = {
+          displayName: finalDisplayName,
+          username: user.displayName || "이름 없음",
+          bio: "",
+          photoURL: user.photoURL || "",
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        
+        await setDoc(userRef, initialData);
+        await setDoc(doc(db, "displayNames", finalDisplayName), { uid: user.uid });
+        return initialData;
+      }
+    },
+    enabled: !!user,
+  });
 
   const handleGoogleLogin = async () => {
     try {
@@ -862,7 +866,7 @@ export default function Home() {
       <Header user={user} profileData={profileData} onLogin={handleGoogleLogin} onLogout={handleLogout} />
       <main className="flex-1 py-12 px-4">
         {user ? (
-          <MyPageView user={user} profileData={profileData} setProfileData={setProfileData} />
+          <MyPageView user={user} />
         ) : (
           <LandingView onLogin={handleGoogleLogin} />
         )}
