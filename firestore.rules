@@ -1,0 +1,38 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. 사용자 프로필 규칙 (users/{userId})
+    match /users/{userId} {
+      // 읽기: 누구나 가능 (퍼블릭 프로필 페이지 지원)
+      allow read: if true;
+      
+      // 쓰기 (생성/수정/삭제): 로그인한 본인만 가능
+      allow write: if request.auth != null && request.auth.uid == userId;
+      
+      // 2. 링크 목록 규칙 (users/{userId}/links/{linkId})
+      match /links/{linkId} {
+        // 읽기: 누구나 가능
+        allow read: if true;
+        // 쓰기: 로그인한 본인만 가능
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // 3. 고유 아이디 중복 체크용 규칙 (displayNames/{displayName})
+    match /displayNames/{displayName} {
+      // 읽기: 누구나 가능 (방문자가 아이디로 UID를 찾을 때 필요)
+      allow read: if true;
+      
+      // 생성: 로그인한 사용자가 자신의 UID를 등록할 때만 가능
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      
+      // 삭제: 등록된 UID의 주인만 삭제 가능 (아이디 변경 시 필요)
+      allow delete: if request.auth != null && resource.data.uid == request.auth.uid;
+      
+      // 업데이트: 아이디는 수정 불가 (삭제 후 다시 생성하는 정책)
+      allow update: if false;
+    }
+  }
+}

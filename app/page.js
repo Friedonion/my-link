@@ -52,14 +52,6 @@ const linkSchema = z.object({
   url: z.string().min(1, "URL을 입력해주세요.").url("유효한 URL 형식이 아닙니다."),
 });
 
-const profileSchema = z.object({
-  displayName: z.string().min(3, "이름은 최소 3글자 이상이어야 합니다.")
-    .max(20, "이름은 최대 20글자까지 가능합니다.")
-    .regex(/^[a-z0-9_.]+$/, "영문 소문자, 숫자, 언더바(_), 마침표(.)만 가능합니다."),
-  bio: z.string().max(100, "소개글은 최대 100글자까지 가능합니다.").optional(),
-  username: z.string().min(2, "표시 이름은 최소 2글자 이상이어야 합니다.").max(20, "표시 이름은 최대 20글자까지 가능합니다."),
-});
-
 const Favicon = ({ src, alt }) => {
   const [error, setError] = useState(false);
 
@@ -361,62 +353,13 @@ const LandingView = ({ onLogin }) => {
   );
 };
 
-const MyPageView = ({ user }) => {
+const MyPageView = ({ user, profileData }) => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
 
-  // 1. 프로필 데이터 조회
-  const { data: profileData, isLoading: isProfileLoading } = useQuery({
-    queryKey: ["profile", user.uid],
-    queryFn: async () => {
-      const userRef = doc(db, "users", user.uid);
-      const userSnap = await getDoc(userRef);
-
-      if (userSnap.exists()) {
-        return userSnap.data();
-      } else {
-        const baseDisplayName = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '') : "user";
-        let finalDisplayName = baseDisplayName;
-        let isAvailable = false;
-        let counter = 0;
-
-        while (!isAvailable) {
-          const checkName = counter === 0 ? baseDisplayName : `${baseDisplayName}.${counter}`;
-          const nameRef = doc(db, "displayNames", checkName);
-          const nameSnap = await getDoc(nameRef);
-          
-          if (!nameSnap.exists()) {
-            finalDisplayName = checkName;
-            isAvailable = true;
-          } else {
-            counter++;
-            if (counter > 100) {
-              finalDisplayName = `${baseDisplayName}.${user.uid.slice(0, 5)}`;
-              break;
-            }
-          }
-        }
-
-        const initialData = {
-          displayName: finalDisplayName,
-          username: user.displayName || "이름 없음",
-          bio: "",
-          photoURL: user.photoURL || "",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        };
-        
-        await setDoc(userRef, initialData);
-        await setDoc(doc(db, "displayNames", finalDisplayName), { uid: user.uid });
-        return initialData;
-      }
-    },
-    enabled: !!user,
-  });
-
-  // 2. 링크 데이터 조회
+  // 1. 링크 데이터 조회 (MyPageView 내에서 관리)
   const { data: links = [], isLoading: isLinksLoading } = useQuery({
     queryKey: ["links", user.uid],
     queryFn: async () => {
@@ -433,7 +376,7 @@ const MyPageView = ({ user }) => {
     enabled: !!user,
   });
 
-  // 3. 프로필 수정 Mutation (낙관적 업데이트)
+  // 2. 프로필 수정 Mutation (낙관적 업데이트)
   const updateProfileMutation = useMutation({
     mutationFn: async ({ field, value, oldValue }) => {
       if (field === 'displayName') {
@@ -477,7 +420,7 @@ const MyPageView = ({ user }) => {
     }
   });
 
-  // 4. 링크 관리 Mutations
+  // 3. 링크 관리 Mutations
   const addLinkMutation = useMutation({
     mutationFn: async (data) => {
       const urlObj = new URL(data.url);
@@ -590,15 +533,6 @@ const MyPageView = ({ user }) => {
     setEditingField(null);
     updateProfileMutation.mutate({ field, value: validatedValue, oldValue });
   };
-
-  if (isProfileLoading) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
-        <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
-        <p className="text-sm font-medium">프로필을 불러오는 중입니다...</p>
-      </div>
-    );
-  }
 
   const profileName = profileData?.username || "이름 없음";
 
@@ -773,18 +707,29 @@ const MyPageView = ({ user }) => {
 };
 
 export default function Home() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  // auth.currentUser로 즉시 초기 상태 설정: 뒤로가기/앞으로가기 시 불필요한 authLoading 방지
+  // currentUser가 이미 있으면 로딩 없이 바로 표시, 없으면 onAuthStateChanged 응답 대기
+  const [user, setUser] = useState(() => auth.currentUser);
+  const [authLoading, setAuthLoading] = useState(() => auth.currentUser === null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
     });
-    return () => unsubscribe();
+
+    // 안전장치: onAuthStateChanged가 3초 내 응답하지 않으면 강제 로딩 종료
+    // (외부 페이지 복귀 시 Firebase가 느리거나 네트워크 문제 시 무한 스피너 방지)
+    const timeout = setTimeout(() => setAuthLoading(false), 3000);
+
+    return () => {
+      unsubscribe();
+      clearTimeout(timeout);
+    };
   }, []);
 
-  const { data: profileData } = useQuery({
+  // 프로필 데이터 조회 (Home에서 한 번만 수행)
+  const { data: profileData, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", user?.uid],
     queryFn: async () => {
       const userRef = doc(db, "users", user.uid);
@@ -793,7 +738,6 @@ export default function Home() {
       if (userSnap.exists()) {
         return userSnap.data();
       } else {
-        // ... (기존 생성 로직과 동일하게 유지)
         const baseDisplayName = user.email ? user.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '') : "user";
         let finalDisplayName = baseDisplayName;
         let isAvailable = false;
@@ -853,6 +797,7 @@ export default function Home() {
     }
   };
 
+  // 전체 로딩 상태 (인증 확인 중)
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
@@ -865,10 +810,15 @@ export default function Home() {
     <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col">
       <Header user={user} profileData={profileData} onLogin={handleGoogleLogin} onLogout={handleLogout} />
       <main className="flex-1 py-12 px-4">
-        {user ? (
-          <MyPageView user={user} />
-        ) : (
+        {!user ? (
           <LandingView onLogin={handleGoogleLogin} />
+        ) : isProfileLoading ? (
+          <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
+            <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
+            <p className="text-sm font-medium">프로필을 불러오는 중입니다...</p>
+          </div>
+        ) : (
+          <MyPageView user={user} profileData={profileData} />
         )}
       </main>
     </div>

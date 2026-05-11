@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { doc, getDoc, collection, query, orderBy, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
@@ -8,9 +9,9 @@ import { Loader2, Link as LinkIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 
-// 마이페이지에서 사용하던 Favicon 컴포넌트 재사용
+// Favicon 컴포넌트 (React import 순서 버그 수정: useState 직접 import 사용)
 const Favicon = ({ src, alt }) => {
-  const [error, setError] = React.useState(false);
+  const [error, setError] = useState(false);
 
   if (error || !src) {
     return (
@@ -32,15 +33,12 @@ const Favicon = ({ src, alt }) => {
   );
 };
 
-// React import (Favicon에서 사용)
-import * as React from "react";
-
 export default function PublicProfilePage() {
   const params = useParams();
   const displayName = params.displayName;
 
   // 1. displayName으로 uid 찾기
-  const { data: userData, isLoading: isUserLoading, isError: isUserError } = useQuery({
+  const { data: userData, isLoading: isUserLoading } = useQuery({
     queryKey: ["public-user", displayName],
     queryFn: async () => {
       const nameRef = doc(db, "displayNames", displayName);
@@ -80,6 +78,7 @@ export default function PublicProfilePage() {
     enabled: !!userData?.uid,
   });
 
+  // 로딩 중 (사용자 정보 조회 중)
   if (isUserLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
@@ -88,6 +87,7 @@ export default function PublicProfilePage() {
     );
   }
 
+  // 사용자를 찾을 수 없는 경우 - 로딩 완료 후에만 notFound() 호출
   if (!userData) {
     notFound();
   }
