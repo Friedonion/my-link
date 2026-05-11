@@ -44,6 +44,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -353,13 +354,25 @@ const LandingView = ({ onLogin }) => {
   );
 };
 
-const MyPageView = ({ user, profileData }) => {
+const MyPageView = ({ user, profileData, isProfileLoading }) => {
   const queryClient = useQueryClient();
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState("");
 
-  // 1. 링크 데이터 조회 (MyPageView 내에서 관리)
+  // 뒤로가기 시 데이터 갱신을 위한 Bfcache 대응 (강제 새로고침)
+  useEffect(() => {
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        // 캐시된 페이지가 복원된 경우, Firebase 연결 고립 방지를 위해 페이지 강제 새로고침
+        window.location.reload();
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
+
+  // 1. 링크 데이터 조회
   const { data: links = [], isLoading: isLinksLoading } = useQuery({
     queryKey: ["links", user.uid],
     queryFn: async () => {
@@ -374,6 +387,8 @@ const MyPageView = ({ user, profileData }) => {
       }));
     },
     enabled: !!user,
+    retry: 1,
+    refetchOnWindowFocus: true,
   });
 
   // 2. 프로필 수정 Mutation (낙관적 업데이트)
@@ -509,7 +524,7 @@ const MyPageView = ({ user, profileData }) => {
   const handleFieldSave = async (field) => {
     if (!editingField || updateProfileMutation.isPending) return;
     
-    const oldValue = profileData[field] || "";
+    const oldValue = profileData?.[field] || "";
     let validatedValue = editValue.trim();
     
     if (validatedValue === oldValue) {
@@ -534,6 +549,25 @@ const MyPageView = ({ user, profileData }) => {
     updateProfileMutation.mutate({ field, value: validatedValue, oldValue });
   };
 
+  if (isProfileLoading && !profileData) {
+    return (
+      <div className="mx-auto max-w-[500px] flex flex-col items-center gap-8 py-12">
+        <div className="flex flex-col items-center gap-4 w-full">
+          <Skeleton className="h-24 w-24 rounded-full" />
+          <div className="flex flex-col items-center gap-2">
+            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+        <div className="w-full flex flex-col gap-4 mt-8">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const profileName = profileData?.username || "이름 없음";
 
   return (
@@ -542,7 +576,7 @@ const MyPageView = ({ user, profileData }) => {
       <div className="flex flex-col items-center gap-4 w-full">
         <div className="relative group">
           <div className="h-24 w-24 rounded-full bg-zinc-200 overflow-hidden border-2 border-white shadow-sm flex items-center justify-center">
-            {profileData.photoURL ? (
+            {profileData?.photoURL ? (
               <img src={profileData.photoURL} alt="Profile" className="h-full w-full object-cover" />
             ) : (
               <span className="text-zinc-400 font-bold text-2xl">{profileName.charAt(0).toUpperCase()}</span>
@@ -566,9 +600,9 @@ const MyPageView = ({ user, profileData }) => {
           ) : (
             <h1 
               className="text-2xl font-bold text-zinc-900 dark:text-zinc-50 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 py-0.5 rounded-md transition-colors"
-              onClick={() => startEditing('username', profileData.username)}
+              onClick={() => startEditing('username', profileData?.username)}
             >
-              {profileData.username || "이름 없음"}
+              {profileData?.username || "이름 없음"}
             </h1>
           )}
 
@@ -588,9 +622,9 @@ const MyPageView = ({ user, profileData }) => {
           ) : (
             <p 
               className="text-zinc-600 dark:text-zinc-400 cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 py-0.5 rounded-md transition-colors"
-              onClick={() => startEditing('displayName', profileData.displayName)}
+              onClick={() => startEditing('displayName', profileData?.displayName)}
             >
-              @{profileData.displayName}
+              @{profileData?.displayName}
             </p>
           )}
 
@@ -610,9 +644,9 @@ const MyPageView = ({ user, profileData }) => {
           ) : (
             <p 
               className="mt-1 text-sm text-zinc-500 dark:text-zinc-400 max-w-[300px] cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 px-2 py-1 rounded-md transition-colors min-h-[1.5rem]"
-              onClick={() => startEditing('bio', profileData.bio)}
+              onClick={() => startEditing('bio', profileData?.bio)}
             >
-              {profileData.bio || "소개글을 입력해보세요."}
+              {profileData?.bio || "소개글을 입력해보세요."}
             </p>
           )}
         </div>
@@ -683,9 +717,15 @@ const MyPageView = ({ user, profileData }) => {
       {/* Links Section */}
       <div className="w-full flex flex-col gap-4">
         {isLinksLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
-            <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
-            <p className="text-sm font-medium">링크를 불러오는 중입니다...</p>
+          <div className="w-full flex flex-col gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden border-zinc-200 shadow-sm">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <Skeleton className="h-5 flex-1" />
+                </CardContent>
+              </Card>
+            ))}
           </div>
         ) : links.length === 0 ? (
           <div className="text-center py-10 text-zinc-400 border-2 border-dashed border-zinc-200 rounded-xl">
@@ -707,10 +747,8 @@ const MyPageView = ({ user, profileData }) => {
 };
 
 export default function Home() {
-  // auth.currentUser로 즉시 초기 상태 설정: 뒤로가기/앞으로가기 시 불필요한 authLoading 방지
-  // currentUser가 이미 있으면 로딩 없이 바로 표시, 없으면 onAuthStateChanged 응답 대기
   const [user, setUser] = useState(() => auth.currentUser);
-  const [authLoading, setAuthLoading] = useState(() => auth.currentUser === null);
+  const [authLoading, setAuthLoading] = useState(true);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -718,9 +756,8 @@ export default function Home() {
       setAuthLoading(false);
     });
 
-    // 안전장치: onAuthStateChanged가 3초 내 응답하지 않으면 강제 로딩 종료
-    // (외부 페이지 복귀 시 Firebase가 느리거나 네트워크 문제 시 무한 스피너 방지)
-    const timeout = setTimeout(() => setAuthLoading(false), 3000);
+    // Firebase 초기화가 늦어질 경우를 대비한 타임아웃
+    const timeout = setTimeout(() => setAuthLoading(false), 2000);
 
     return () => {
       unsubscribe();
@@ -728,7 +765,7 @@ export default function Home() {
     };
   }, []);
 
-  // 프로필 데이터 조회 (Home에서 한 번만 수행)
+  // 프로필 데이터 조회
   const { data: profileData, isLoading: isProfileLoading } = useQuery({
     queryKey: ["profile", user?.uid],
     queryFn: async () => {
@@ -797,28 +834,22 @@ export default function Home() {
     }
   };
 
-  // 전체 로딩 상태 (인증 확인 중)
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-black flex flex-col">
       <Header user={user} profileData={profileData} onLogin={handleGoogleLogin} onLogout={handleLogout} />
       <main className="flex-1 py-12 px-4">
-        {!user ? (
-          <LandingView onLogin={handleGoogleLogin} />
-        ) : isProfileLoading ? (
-          <div className="flex flex-col items-center justify-center py-20 gap-3 text-zinc-400">
-            <Loader2 className="h-10 w-10 animate-spin text-zinc-300" />
-            <p className="text-sm font-medium">프로필을 불러오는 중입니다...</p>
+        {authLoading ? (
+          <div className="min-h-[60vh] flex items-center justify-center">
+            <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
           </div>
+        ) : !user ? (
+          <LandingView onLogin={handleGoogleLogin} />
         ) : (
-          <MyPageView user={user} profileData={profileData} />
+          <MyPageView 
+            user={user} 
+            profileData={profileData} 
+            isProfileLoading={isProfileLoading} 
+          />
         )}
       </main>
     </div>

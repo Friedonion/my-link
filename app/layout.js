@@ -25,6 +25,20 @@ export default function RootLayout({ children }) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Bfcache 무한 로딩 방지를 위한 강제 새로고침 스크립트 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                window.addEventListener('pageshow', function(event) {
+                  if (event.persisted || (window.performance && window.performance.navigation.type === 2)) {
+                    window.location.reload();
+                  }
+                });
+              })();
+            `,
+          }}
+        />
         <Providers>
           {children}
           <Toaster position="top-center" />

@@ -1,13 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { doc, getDoc, collection, query, orderBy, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { notFound, useParams } from "next/navigation";
 import { Loader2, Link as LinkIcon } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Favicon 컴포넌트 (React import 순서 버그 수정: useState 직접 import 사용)
 const Favicon = ({ src, alt }) => {
@@ -35,12 +36,34 @@ const Favicon = ({ src, alt }) => {
 
 export default function PublicProfilePage() {
   const params = useParams();
-  const displayName = params.displayName;
+  const queryClient = useQueryClient();
+  const displayName = typeof params?.displayName === "string" ? params.displayName : "";
+
+  // 뒤로가기 시 무한 로딩 해결을 위한 Bfcache 대응 (강력한 버전)
+  useEffect(() => {
+    // 1. pageshow 이벤트 처리
+    const handlePageShow = (event) => {
+      if (event.persisted) {
+        window.location.reload();
+      }
+    };
+
+    // 2. 초기 로드 시 뒤로가기 여부 확인 (일부 브라우저 대응)
+    const entries = window.performance.getEntriesByType("navigation");
+    if (entries.length > 0 && entries[0].type === "back_forward") {
+      window.location.reload();
+    }
+
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   // 1. displayName으로 uid 찾기
-  const { data: userData, isLoading: isUserLoading } = useQuery({
+  const { data: userData, isLoading: isUserLoading, isError: isUserError } = useQuery({
     queryKey: ["public-user", displayName],
     queryFn: async () => {
+      if (!displayName) return null;
+      
       const nameRef = doc(db, "displayNames", displayName);
       const nameSnap = await getDoc(nameRef);
 
@@ -58,6 +81,10 @@ export default function PublicProfilePage() {
 
       return { uid, ...userSnap.data() };
     },
+    enabled: !!displayName,
+    retry: 1,
+    staleTime: 0, // 항상 최신 데이터 확인
+    refetchOnWindowFocus: true,
   });
 
   // 2. uid로 링크 목록 가져오기
@@ -76,20 +103,22 @@ export default function PublicProfilePage() {
       }));
     },
     enabled: !!userData?.uid,
+    retry: 1,
   });
 
-  // 로딩 중 (사용자 정보 조회 중)
-  if (isUserLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-zinc-50 dark:bg-black">
-        <Loader2 className="h-8 w-8 animate-spin text-zinc-400" />
-      </div>
-    );
+  // 사용자를 찾을 수 없는 경우
+  if (!isUserLoading && (isUserError || (displayName && !userData))) {
+    notFound();
   }
 
-  // 사용자를 찾을 수 없는 경우 - 로딩 완료 후에만 notFound() 호출
-  if (!userData) {
-    notFound();
+  // 초기 로딩 시 사용자가 요청한 로딩 바(Spinner) 표시
+  if (isUserLoading) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50 dark:bg-black gap-4">
+        <Loader2 className="h-10 w-10 animate-spin text-zinc-400" />
+        <p className="text-zinc-500 text-sm font-medium animate-pulse">프로필을 불러오는 중...</p>
+      </div>
+    );
   }
 
   return (
@@ -97,34 +126,53 @@ export default function PublicProfilePage() {
       <div className="mx-auto max-w-[500px] flex flex-col items-center gap-8">
         {/* Profile Section */}
         <div className="flex flex-col items-center gap-4 w-full">
-          <Avatar className="h-24 w-24 border-2 border-white shadow-sm">
-            <AvatarImage src={userData.photoURL} alt={userData.username} />
-            <AvatarFallback className="bg-zinc-200 text-zinc-400 text-2xl font-bold">
-              {userData.username?.charAt(0).toUpperCase()}
-            </AvatarFallback>
-          </Avatar>
-          
-          <div className="text-center">
-            <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
-              {userData.username}
-            </h1>
-            <p className="text-zinc-600 dark:text-zinc-400">
-              @{userData.displayName}
-            </p>
-            {userData.bio && (
-              <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-[300px]">
-                {userData.bio}
-              </p>
-            )}
-          </div>
+          {isUserLoading ? (
+            <>
+              <Skeleton className="h-24 w-24 rounded-full" />
+              <div className="flex flex-col items-center gap-2">
+                <Skeleton className="h-8 w-32" />
+                <Skeleton className="h-4 w-24" />
+                <Skeleton className="h-12 w-64 mt-2" />
+              </div>
+            </>
+          ) : userData ? (
+            <>
+              <Avatar className="h-24 w-24 border-2 border-white shadow-sm">
+                <AvatarImage src={userData.photoURL} alt={userData.username} />
+                <AvatarFallback className="bg-zinc-200 text-zinc-400 text-2xl font-bold">
+                  {userData.username?.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              
+              <div className="text-center">
+                <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+                  {userData.username}
+                </h1>
+                <p className="text-zinc-600 dark:text-zinc-400">
+                  @{userData.displayName}
+                </p>
+                {userData.bio && (
+                  <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400 max-w-[300px]">
+                    {userData.bio}
+                  </p>
+                )}
+              </div>
+            </>
+          ) : null}
         </div>
 
         {/* Links Section */}
         <div className="w-full flex flex-col gap-4">
-          {isLinksLoading ? (
-            <div className="flex justify-center py-10">
-              <Loader2 className="h-6 w-6 animate-spin text-zinc-300" />
-            </div>
+          {isUserLoading || isLinksLoading ? (
+            // 링크 로딩 중 Skeleton UI
+            Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i} className="overflow-hidden border-zinc-200 shadow-sm">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <Skeleton className="h-5 flex-1" />
+                </CardContent>
+              </Card>
+            ))
           ) : links.length === 0 ? (
             <div className="text-center py-10 text-zinc-400 border-2 border-dashed border-zinc-200 rounded-xl">
               등록된 링크가 없습니다.
