@@ -81,8 +81,8 @@ Firestore의 NoSQL 특성을 활용하여 다음과 같이 컬렉션(Collection)
 사용자 프로필 및 계정 기본 정보를 저장합니다.
 - **Document ID**: `uid` (Firebase Auth에서 제공하는 고유 사용자 ID)
 - **Fields**:
-  - `username` (String): 서비스 내 고유한 ID (URL 생성용, 예: `mylink.com/username`)
-  - `displayName` (String): 프로필에 표시될 이름
+  - `displayName` (String): 서비스 내 고유한 ID (URL 생성용, 예: `mylink.com/johndoe`)
+  - `username` (String): 프로필에 표시될 이름 (중복 가능)
   - `bio` (String): 짧은 소개글
   - `photoURL` (String): 프로필 이미지 URL (Firebase Storage 주소)
   - `createdAt` (Timestamp): 계정 생성일
@@ -98,8 +98,8 @@ Firestore의 NoSQL 특성을 활용하여 다음과 같이 컬렉션(Collection)
   - `faviconUrl` (String): 파비콘 이미지 URL
   - `createdAt` (Timestamp): 링크 생성일 (생성순 정렬 등에 활용)
 
-### 5.3 `usernames` 컬렉션
-`username` 중복 가입을 방지하고, 방문자가 퍼블릭 페이지 접속 시 매핑되는 `uid`를 빠르게 찾기 위해 사용합니다.
-- **Document ID**: `username` (사용자가 입력한 고유 ID 값)
+### 5.3 `displayNames` 컬렉션
+`displayName` 중복 가입을 방지하고, 방문자가 퍼블릭 페이지 접속 시 매핑되는 `uid`를 빠르게 찾기 위해 사용합니다.
+- **Document ID**: `displayName` (사용자가 입력한 고유 ID 값)
 - **Fields**:
   - `uid` (String): 해당 ID를 소유한 사용자의 UID
