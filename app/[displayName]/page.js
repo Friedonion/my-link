@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { doc, getDoc, collection, query, orderBy, getDocs, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { notFound, useParams } from "next/navigation";
+import Link from "next/link";
 import { Loader2, Link as LinkIcon, MousePointer2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -214,12 +215,16 @@ export default function PublicProfilePage() {
         </div>
 
         {/* Footer (Branding) */}
-        <footer className="mt-12 text-center">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-zinc-200 shadow-sm text-xs font-semibold text-zinc-500 dark:bg-zinc-900 dark:border-zinc-800">
+        <footer className="mt-20 flex flex-col items-center gap-6">
+          <Link 
+            href="/" 
+            className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-zinc-200 shadow-sm text-xs font-semibold text-zinc-500 hover:text-zinc-800 hover:border-zinc-300 transition-all dark:bg-zinc-900 dark:border-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+          >
             <LinkIcon className="h-3 w-3" />
             <span>Powered by MyLink</span>
-          </div>
+          </Link>
         </footer>
+
       </div>
     </div>
   );
