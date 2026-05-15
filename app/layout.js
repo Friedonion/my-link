@@ -13,8 +13,14 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
+  ? process.env.NEXT_PUBLIC_BASE_URL 
+  : process.env.VERCEL_URL 
+    ? `https://${process.env.VERCEL_URL}` 
+    : "http://localhost:3000";
+
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"),
+  metadataBase: new URL(baseUrl),
   title: {
     default: "MY-link | 모든 링크를 하나로",
     template: "%s | MY-link"
