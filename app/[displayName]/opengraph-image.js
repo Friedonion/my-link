@@ -11,52 +11,83 @@ export const size = {
 export const contentType = "image/png";
 
 export default async function Image({ params }) {
-  // Next.js 15+ 대응
   const resolvedParams = await params;
   const displayName = resolvedParams.displayName;
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
 
+  console.log(`Generating OG image for: ${displayName}, Project: ${projectId}`);
+
   let userData = null;
 
-  try {
-    const nameRes = await fetch(
-      `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/displayNames/${displayName}`,
-      { next: { revalidate: 60 } }
-    );
-    
-    if (nameRes.ok) {
-      const nameData = await nameRes.json();
-      const uid = nameData.fields?.uid?.stringValue;
+  if (!projectId) {
+    console.error("Missing NEXT_PUBLIC_FIREBASE_PROJECT_ID");
+  } else {
+    try {
+      // 1. displayName으로 uid 찾기 (REST API 사용)
+      const nameRes = await fetch(
+        `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/displayNames/${displayName}`,
+        { 
+          next: { revalidate: 60 },
+          headers: { 'Accept': 'application/json' }
+        }
+      );
+      
+      if (nameRes.ok) {
+        const nameData = await nameRes.json();
+        const uid = nameData.fields?.uid?.stringValue;
 
-      if (uid) {
-        const userRes = await fetch(
-          `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
-          { next: { revalidate: 60 } }
-        );
+        if (uid) {
+          // 2. uid로 사용자 프로필 정보 가져오기
+          const userRes = await fetch(
+            `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/users/${uid}`,
+            { 
+              next: { revalidate: 60 },
+              headers: { 'Accept': 'application/json' }
+            }
+          );
 
-        if (userRes.ok) {
-          const fullData = await userRes.json();
-          const f = fullData.fields;
-          if (f) {
-            userData = {
-              username: f.username?.stringValue || "이름 없음",
-              bio: f.bio?.stringValue || "",
-              photoURL: f.photoURL?.stringValue || "",
-              displayName: f.displayName?.stringValue || displayName,
-            };
+          if (userRes.ok) {
+            const fullData = await userRes.json();
+            const f = fullData.fields;
+            if (f) {
+              userData = {
+                username: f.username?.stringValue || displayName,
+                bio: f.bio?.stringValue || "",
+                photoURL: f.photoURL?.stringValue || "",
+                displayName: displayName,
+              };
+            }
+          } else {
+            console.error(`User fetch failed: ${userRes.status}`);
           }
         }
+      } else {
+        console.error(`DisplayName fetch failed: ${nameRes.status}`);
       }
+    } catch (error) {
+      console.error("OG Image fetch error:", error);
     }
-  } catch (error) {
-    console.error("OG Image fetch error:", error);
   }
 
+  // 데이터 로드 실패 시에도 아름다운 기본 이미지 반환
   if (!userData) {
     return new ImageResponse(
       (
-        <div style={{ background: "white", width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 64, fontWeight: "bold" }}>
-          MY-link
+        <div
+          style={{
+            background: "linear-gradient(135deg, #6366f1 0%, #a855f7 100%)",
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            color: "white",
+            fontFamily: "sans-serif",
+          }}
+        >
+          <div style={{ fontSize: 80, fontWeight: "bold", marginBottom: 20 }}>MY-link</div>
+          <div style={{ fontSize: 32, opacity: 0.9 }}>@{displayName}</div>
         </div>
       ),
       { ...size }
