@@ -2,6 +2,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import Providers from "./providers";
+import { BASE_URL, APP_NAME, APP_DESCRIPTION } from "@/lib/constants";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -13,19 +14,13 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-  ? process.env.NEXT_PUBLIC_BASE_URL 
-  : process.env.VERCEL_URL 
-    ? `https://${process.env.VERCEL_URL}` 
-    : "http://localhost:3000";
-
 export const metadata = {
-  metadataBase: new URL(baseUrl),
+  metadataBase: new URL(BASE_URL),
   title: {
-    default: "MY-link | 모든 링크를 하나로",
-    template: "%s | MY-link"
+    default: `${APP_NAME} | 모든 링크를 하나로`,
+    template: `%s | ${APP_NAME}`
   },
-  description: "인스타그램, 유튜브, 블로그까지. 나만의 모든 링크를 한 페이지에 담고 실시간 통계까지 확인하세요.",
+  description: APP_DESCRIPTION,
   keywords: ["마이링크", "링크트리", "멀티링크", "프로필링크", "소셜미디어", "콘텐츠크리에이터"],
   authors: [{ name: "Friedonion" }],
   creator: "Friedonion",
@@ -34,14 +29,14 @@ export const metadata = {
     type: "website",
     locale: "ko_KR",
     url: "/",
-    siteName: "MY-link",
-    title: "MY-link | 모든 링크를 하나로",
-    description: "나만의 모든 링크를 한 페이지에 담고 실시간 통계까지 확인하세요.",
+    siteName: APP_NAME,
+    title: `${APP_NAME} | 모든 링크를 하나로`,
+    description: APP_DESCRIPTION,
   },
   twitter: {
     card: "summary_large_image",
-    title: "MY-link | 모든 링크를 하나로",
-    description: "나만의 모든 링크를 한 페이지에 담고 실시간 통계까지 확인하세요.",
+    title: `${APP_NAME} | 모든 링크를 하나로`,
+    description: APP_DESCRIPTION,
   },
   robots: {
     index: true,

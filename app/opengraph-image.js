@@ -1,6 +1,6 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+export const runtime = "nodejs";
 
 export const alt = "MY-link";
 export const size = {
@@ -23,9 +23,10 @@ export default async function Image() {
           alignItems: "center",
           justifyContent: "center",
           fontFamily: "sans-serif",
+          position: "relative",
         }}
       >
-        {/* Background Pattern */}
+        {/* Background Gradient (Satori compatible) */}
         <div
           style={{
             position: "absolute",
@@ -33,22 +34,20 @@ export default async function Image() {
             left: 0,
             right: 0,
             bottom: 0,
-            opacity: 0.03,
-            backgroundImage: "radial-gradient(circle at 2px 2px, black 1px, transparent 0)",
-            backgroundSize: "24px 24px",
+            background: "linear-gradient(to bottom right, #ffffff, #f9fafb)",
           }}
         />
 
         <div
           style={{
             display: "flex",
+            position: "relative",
             alignItems: "center",
             gap: "24px",
             marginBottom: "40px",
             padding: "24px 40px",
             borderRadius: "48px",
             background: "#18181b", // zinc-900
-            boxShadow: "0 20px 50px rgba(0,0,0,0.15)",
           }}
         >
           <svg

@@ -81,13 +81,13 @@ export default async function Image({ params }) {
             right: 0,
             bottom: 0,
             background: "linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%)",
-            zIndex: -2,
           }}
         />
         
         <div
           style={{
             display: "flex",
+            position: "relative",
             flexDirection: "row",
             alignItems: "center",
             gap: "60px",

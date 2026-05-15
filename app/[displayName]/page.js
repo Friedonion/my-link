@@ -1,16 +1,10 @@
 import ProfileClient from "./ProfileClient";
+import { BASE_URL } from "@/lib/constants";
 
 export async function generateMetadata({ params }) {
   const { displayName } = await params;
   const projectId = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID;
   
-  // 배포 환경과 로컬 환경을 모두 지원하는 Base URL 구성
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL 
-    ? process.env.NEXT_PUBLIC_BASE_URL 
-    : process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : "http://localhost:3000";
-
   if (!displayName || !projectId) {
     return { 
       title: "프로필",
@@ -51,15 +45,24 @@ export async function generateMetadata({ params }) {
             openGraph: {
               title: `${username}님의 마이링크`,
               description: bio,
-              url: `${baseUrl}/${displayName}`,
+              url: `/${displayName}`,
+              images: [
+                {
+                  url: `/${displayName}/opengraph-image`,
+                  width: 1200,
+                  height: 630,
+                  alt: `${username}님의 프로필`,
+                },
+              ],
             },
             twitter: {
               card: "summary_large_image",
               title: `${username}님의 마이링크`,
               description: bio,
+              images: [`/${displayName}/opengraph-image`],
             },
             alternates: {
-              canonical: `${baseUrl}/${displayName}`,
+              canonical: `/${displayName}`,
             },
           };
         }
