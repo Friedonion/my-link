@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { doc, getDoc, collection, query, orderBy, getDocs } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, getDocs, updateDoc, increment } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { notFound, useParams } from "next/navigation";
-import { Loader2, Link as LinkIcon } from "lucide-react";
+import { Loader2, Link as LinkIcon, MousePointer2 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,7 +63,7 @@ export default function PublicProfilePage() {
     queryKey: ["public-user", displayName],
     queryFn: async () => {
       if (!displayName) return null;
-      
+
       const nameRef = doc(db, "displayNames", displayName);
       const nameSnap = await getDoc(nameRef);
 
@@ -106,6 +106,19 @@ export default function PublicProfilePage() {
     retry: 1,
   });
 
+  // 클릭 카운트 증가 함수
+  const handleLinkClick = async (linkId) => {
+    if (!userData?.uid) return;
+    try {
+      const linkRef = doc(db, "users", userData.uid, "links", linkId);
+      await updateDoc(linkRef, {
+        clicks: increment(1)
+      });
+    } catch (error) {
+      console.error("클릭 카운트 저장 오류:", error);
+    }
+  };
+
   // 사용자를 찾을 수 없는 경우
   if (!isUserLoading && (isUserError || (displayName && !userData))) {
     notFound();
@@ -143,7 +156,7 @@ export default function PublicProfilePage() {
                   {userData.username?.charAt(0).toUpperCase()}
                 </AvatarFallback>
               </Avatar>
-              
+
               <div className="text-center">
                 <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-50">
                   {userData.username}
@@ -184,6 +197,7 @@ export default function PublicProfilePage() {
                 href={link.url}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => handleLinkClick(link.id)}
                 className="block w-full transition-all hover:scale-[1.01] active:scale-[0.99]"
               >
                 <Card className="overflow-hidden border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700 shadow-sm">

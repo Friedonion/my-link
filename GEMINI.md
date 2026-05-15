@@ -52,6 +52,7 @@ C:\Users\HJ\Documents\my-link\
 - `npm run lint`: Static code analysis using ESLint
 
 ## 6. Development Notes
+- **DB & Security**: Firestore 데이터 구조를 수정하거나 새로운 컬렉션을 추가할 때는 반드시 `firestore.rules` 보안 규칙도 함께 검토하고 업데이트해야 합니다.
 - **Styling**: Use Tailwind CSS 4 as the default; use the `cn` function for complex class compositions.
 - **Data Management**: Adhere to the `users/{uid}/links` sub-collection structure considering Firestore security rules.
 - **File Reference Convention**: Use the `@` prefix when referring to files (e.g., `@app/page.js`, `@docs/PRD.md`).

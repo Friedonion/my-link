@@ -15,8 +15,11 @@ service cloud.firestore {
       match /links/{linkId} {
         // 읽기: 누구나 가능
         allow read: if true;
-        // 쓰기: 로그인한 본인만 가능
-        allow write: if request.auth != null && request.auth.uid == userId;
+        // 생성/삭제: 로그인한 본인만 가능
+        allow create, delete: if request.auth != null && request.auth.uid == userId;
+        // 수정: 본인이거나, 'clicks' 필드만 업데이트하는 경우 허용
+        allow update: if (request.auth != null && request.auth.uid == userId) || 
+                         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['clicks']));
       }
     }
 

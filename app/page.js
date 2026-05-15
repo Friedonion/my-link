@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Plus, Link as LinkIcon, Loader2, Pencil, Trash2, LogOut, Copy, ExternalLink } from "lucide-react";
+import { Plus, Link as LinkIcon, Loader2, Pencil, Trash2, LogOut, Copy, ExternalLink, MousePointer2, BarChart3 } from "lucide-react";
+
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -171,9 +172,17 @@ const LinkItem = ({ link, onUpdate, onDelete }) => {
         <Card className="overflow-hidden border-zinc-200 hover:border-zinc-300 dark:border-zinc-800 dark:hover:border-zinc-700 shadow-sm">
           <CardContent className="p-4 pr-12 flex items-center gap-4">
             <Favicon src={link.faviconUrl} alt={link.title} />
-            <span className="flex-1 font-semibold text-zinc-900 dark:text-zinc-100 truncate">
-              {link.title}
-            </span>
+            <div className="flex-1 flex flex-col min-w-0">
+              <span className="font-semibold text-zinc-900 dark:text-zinc-100 truncate">
+                {link.title}
+              </span>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <MousePointer2 className="h-3 w-3 text-zinc-400" />
+                <span className="text-[11px] font-medium text-zinc-400">
+                  {link.clicks || 0} clicks
+                </span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </a>
@@ -284,6 +293,10 @@ const Header = ({ user, profileData, onLogin, onLogout }) => {
                 <DropdownMenuItem render={<Link href={`/${profileData?.displayName}`} className="cursor-pointer flex items-center" />}>
                   <LinkIcon className="mr-2 h-4 w-4" />
                   <span>내 페이지 보기</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem render={<Link href="/stats" className="cursor-pointer flex items-center" />}>
+                  <BarChart3 className="mr-2 h-4 w-4" />
+                  <span>통계 보기</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={handleCopyLink} className="cursor-pointer">
                   <Copy className="mr-2 h-4 w-4" />
@@ -454,6 +467,7 @@ const MyPageView = ({ user, profileData, isProfileLoading }) => {
         title: data.title,
         url: data.url,
         faviconUrl,
+        clicks: 0,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       });
