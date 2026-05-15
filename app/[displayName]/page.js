@@ -45,11 +45,6 @@ export async function generateMetadata({ params }) {
           const username = f.username?.stringValue || displayName;
           const bio = f.bio?.stringValue || `${username}님의 마이링크 페이지입니다.`;
           
-          // 동적 OG 이미지 경로를 '완전한 절대 경로'로 설정하고, 
-          // 캐시를 강제로 새로고침하기 위해 타임스탬프(버전) 추가
-          const version = new Date().getTime();
-          const ogImageUrl = `${baseUrl}/${displayName}/opengraph-image?v=${version}`;
-
           return {
             title: `${username} (@${displayName})`,
             description: bio,
@@ -57,21 +52,11 @@ export async function generateMetadata({ params }) {
               title: `${username}님의 마이링크`,
               description: bio,
               url: `${baseUrl}/${displayName}`,
-              images: [
-                {
-                  url: ogImageUrl,
-                  width: 1200,
-                  height: 630,
-                  alt: `${username}님의 프로필 카드`,
-                  type: "image/png",
-                }
-              ],
             },
             twitter: {
               card: "summary_large_image",
               title: `${username}님의 마이링크`,
               description: bio,
-              images: [ogImageUrl],
             },
             alternates: {
               canonical: `${baseUrl}/${displayName}`,

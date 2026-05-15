@@ -37,21 +37,11 @@ export const metadata = {
     siteName: "MY-link",
     title: "MY-link | 모든 링크를 하나로",
     description: "나만의 모든 링크를 한 페이지에 담고 실시간 통계까지 확인하세요.",
-    images: [
-      {
-        url: "/opengraph-image",
-        width: 1200,
-        height: 630,
-        alt: "MY-link",
-        type: "image/png",
-      }
-    ]
   },
   twitter: {
     card: "summary_large_image",
     title: "MY-link | 모든 링크를 하나로",
     description: "나만의 모든 링크를 한 페이지에 담고 실시간 통계까지 확인하세요.",
-    images: ["/opengraph-image"],
   },
   robots: {
     index: true,
