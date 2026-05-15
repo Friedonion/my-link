@@ -36,7 +36,8 @@ export const metadata = {
         url: "/opengraph-image",
         width: 1200,
         height: 630,
-        alt: "MY-link"
+        alt: "MY-link",
+        type: "image/png",
       }
     ]
   },

@@ -31,7 +31,10 @@ export async function generateMetadata({ params }) {
           const f = fullData.fields;
           const username = f.username?.stringValue || displayName;
           const bio = f.bio?.stringValue || `${username}님의 마이링크 페이지입니다.`;
-          const photoURL = f.photoURL?.stringValue;
+          
+          // 동적 OG 이미지 경로 설정 (opengraph-image.js 호출)
+          // 캐시 방지를 위해 간단한 타임스탬프 또는 랜덤 쿼리 추가 가능
+          const ogImageUrl = `/${displayName}/opengraph-image`;
 
           return {
             title: `${username} (@${displayName})`,
@@ -40,20 +43,20 @@ export async function generateMetadata({ params }) {
               title: `${username}님의 마이링크`,
               description: bio,
               url: `/${displayName}`,
-              images: photoURL ? [
+              images: [
                 {
-                  url: photoURL,
-                  width: 400,
-                  height: 400,
-                  alt: username,
+                  url: ogImageUrl,
+                  width: 1200,
+                  height: 630,
+                  alt: `${username}님의 프로필 카드`,
                 }
-              ] : [],
+              ],
             },
             twitter: {
-              card: "summary",
+              card: "summary_large_image",
               title: `${username}님의 마이링크`,
               description: bio,
-              images: photoURL ? [photoURL] : [],
+              images: [ogImageUrl],
             },
             alternates: {
               canonical: `/${displayName}`,
