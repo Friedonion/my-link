@@ -45,6 +45,10 @@ export async function generateMetadata({ params }) {
           const username = f.username?.stringValue || displayName;
           const bio = f.bio?.stringValue || `${username}님의 마이링크 페이지입니다.`;
           
+          // Vercel 리다이렉트 이슈를 방지하기 위해 이미지 경로를 명시적으로 지정
+          const version = new Date().getTime();
+          const ogImageUrl = `${baseUrl}/${displayName}/opengraph-image?v=${version}`;
+
           return {
             title: `${username} (@${displayName})`,
             description: bio,
@@ -52,11 +56,20 @@ export async function generateMetadata({ params }) {
               title: `${username}님의 마이링크`,
               description: bio,
               url: `${baseUrl}/${displayName}`,
+              images: [
+                {
+                  url: ogImageUrl,
+                  width: 1200,
+                  height: 630,
+                  alt: `${username}님의 프로필 카드`,
+                }
+              ],
             },
             twitter: {
               card: "summary_large_image",
               title: `${username}님의 마이링크`,
               description: bio,
+              images: [ogImageUrl],
             },
             alternates: {
               canonical: `${baseUrl}/${displayName}`,

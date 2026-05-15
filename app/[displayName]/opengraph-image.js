@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 
-export const runtime = "edge";
+// Edge 런타임 대신 기본 nodejs 런타임 사용 (외부 이미지 fetch 안정성 확보)
+export const runtime = "nodejs";
 
 export const alt = "MY-link User Profile";
 export const size = {
